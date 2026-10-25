@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VerbaDB: talk to your databases</title>
+  <meta name="description" content="VerbaDB lets you ask questions of your databases in plain English, build new ones just by describing them, and see exactly how every change affects your data.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cellipse cx='12' cy='6' rx='8' ry='3' fill='%232563eb'/%3E%3Cpath d='M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6c0 1.7-3.6 3-8 3S4 7.7 4 6z' fill='%233b82f6'/%3E%3Cpath d='M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6c0 1.7-3.6 3-8 3s-8-1.3-8-3z' fill='%2360a5fa'/%3E%3C/svg%3E">
+  <!-- Blocking on purpose: sets the saved theme before the first paint (no flash). External, because the CSP forbids inline scripts. -->
+  <script src="/static/theme.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to the conversation</a>
+  <noscript><p class="banner setup">VerbaDB needs JavaScript. Please turn it on and reload the page.</p></noscript>
+
+  <header class="site-header">
+  <div class="topbar">
+    <button id="menu-toggle" class="btn icon" type="button" aria-expanded="false" aria-controls="side">Menu</button>
+    <h1 class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+        <ellipse cx="12" cy="6" rx="8" ry="3"/>
+        <path class="m2" d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6c0 1.7-3.6 3-8 3S4 7.7 4 6z"/>
+        <path class="m3" d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6c0 1.7-3.6 3-8 3s-8-1.3-8-3z"/>
+      </svg>
+      <span class="wordmark"><span class="brand-verba">Verba</span><span class="brand-db">DB</span></span>
+    </h1>
+    <span class="tagline">Talk to your databases</span>
+    <span id="active" class="active" aria-live="polite"></span>
+    <span class="spacer"></span>
+    <span id="model" class="muted small"></span>
+    <button id="new-db-btn" class="btn" type="button">+ New database</button>
+    <button id="new-chat" class="btn" type="button">New chat</button>
+    <div class="theme-control">
+      <button id="theme-toggle" class="switch" type="button" role="switch" aria-checked="false">
+        <span class="switch-text">Dark mode</span>
+        <span class="switch-track" aria-hidden="true">
+          <svg class="switch-icon sun" viewBox="0 0 24 24" width="14" height="14" focusable="false"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg class="switch-icon moon" viewBox="0 0 24 24" width="14" height="14" focusable="false"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg>
+          <span class="switch-thumb"></span>
+        </span>
+      </button>
+      <button id="theme-auto" class="btn small" type="button" hidden aria-label="Auto: follow the system colour scheme again">Auto</button>
+    </div>
+  </div>
+
+  <!-- Inside the header so that the notices belong to a landmark -->
+  <div id="setup" class="banner setup" role="alert" hidden></div>
+  <div id="privacy" class="banner privacy"></div>
+  </header>
+
+  <div class="layout">
+    <aside id="side" class="side" aria-label="Databases, history and schema">
+      <div class="tabs" role="tablist" aria-label="Side panel">
+        <button class="tab" id="tab-databases" type="button" role="tab" aria-selected="true" aria-controls="panel-databases" tabindex="0">Databases</button>
+        <button class="tab" id="tab-history" type="button" role="tab" aria-selected="false" aria-controls="panel-history" tabindex="-1">History</button>
+        <button class="tab" id="tab-schema" type="button" role="tab" aria-selected="false" aria-controls="panel-schema" tabindex="-1">Schema</button>
+      </div>
+
+      <section id="panel-databases" class="panel" role="tabpanel" aria-labelledby="tab-databases">
+        <ul id="db-list" class="db-list"></ul>
+        <div class="panel-actions">
+          <button id="side-new-db" class="btn" type="button">+ New database</button>
+          <button id="side-connect" class="btn" type="button">Connect yours</button>
+        </div>
+        <p class="muted small hint">Sandboxes live inside VerbaDB: the chatbot can build and change them, and every change can be undone. Shared and connected databases are read-only.</p>
+      </section>
+
+      <section id="panel-history" class="panel" role="tabpanel" aria-labelledby="tab-history" hidden>
+        <div class="history-tools">
+          <label class="sr-only" for="history-search">Search your prompts</label>
+          <input id="history-search" type="search" placeholder="Search your prompts…" autocomplete="off">
+          <label class="small muted check"><input id="history-this" type="checkbox"> This database only</label>
+        </div>
+        <ul id="history-list" class="history-list"></ul>
+        <div class="panel-actions">
+          <button id="history-clear" class="btn" type="button">Clear history</button>
+        </div>
+      </section>
+
+      <section id="panel-schema" class="panel" role="tabpanel" aria-labelledby="tab-schema" hidden>
+        <div id="schema-list" class="schema-list muted small">Select a database.</div>
+      </section>
+    </aside>
+
+    <main id="main" class="main" tabindex="-1">
+      <h2 class="sr-only">Conversation</h2>
+      <div id="feed" class="feed" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions"></div>
+      <form id="composer" class="composer" autocomplete="off">
+        <label class="sr-only" for="question">Your message</label>
+        <textarea id="question" rows="1" maxlength="2000" placeholder="Ask a question about your data…" aria-describedby="composer-hint"></textarea>
+        <p id="composer-hint" class="sr-only">Press Enter to send. Press Shift and Enter for a new line.</p>
+        <button id="send" class="btn primary" type="submit">Send</button>
+      </form>
+    </main>
+  </div>
+
+  <dialog id="dlg-new" aria-labelledby="dlg-new-title">
+    <form id="form-new" class="dlg">
+      <h2 id="dlg-new-title">New sandbox database</h2>
+      <p class="muted small">Tip: you can also just ask the chatbot, e.g. “Create a database for a pet clinic with sample data”.</p>
+      <label class="field" for="new-name">Name
+        <input id="new-name" type="text" maxlength="60" value="My database" required aria-describedby="new-error" autocomplete="off">
+      </label>
+      <fieldset class="choices">
+        <legend>Starting point</legend>
+        <label><input type="radio" name="start" value="empty" checked> Empty: I'll describe what I want</label>
+        <label><input type="radio" name="start" value="sample"> Sample shop: customers, products, orders (about 1,800 rows)</label>
+      </fieldset>
+      <p id="new-error" class="form-error" role="alert" hidden></p>
+      <div class="dlg-actions">
+        <button class="btn" type="button" id="new-cancel">Cancel</button>
+        <button class="btn primary" type="submit" id="new-create">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-connect" aria-labelledby="dlg-connect-title">
+    <form id="form-connect" class="dlg">
+      <h2 id="dlg-connect-title">Connect your own database</h2>
+      <p class="muted small">Read-only: the chatbot can query it but never change it. The URL (including any password) is kept on the server and never shown again. For safety, connect with a read-only database account.</p>
+      <label class="field" for="connect-name">Name
+        <input id="connect-name" type="text" maxlength="60" placeholder="Production replica" required autocomplete="off">
+      </label>
+      <label class="field" for="connect-url">Connection URL
+        <input id="connect-url" type="text" maxlength="2000" placeholder="postgresql://user:password@host:5432/dbname" spellcheck="false" autocapitalize="off" autocomplete="off" required aria-describedby="connect-help connect-error">
+      </label>
+      <p id="connect-help" class="muted small">Supported: <code>postgresql://</code>, <code>mysql://</code>, <code>mongodb://</code> (and <code>mongodb+srv://</code>).</p>
+      <p id="connect-error" class="form-error" role="alert" hidden></p>
+      <div class="dlg-actions">
+        <button class="btn" type="button" id="connect-cancel">Cancel</button>
+        <button class="btn primary" type="submit" id="connect-save">Test &amp; add</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

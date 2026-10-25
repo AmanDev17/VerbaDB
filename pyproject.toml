@@ -1,0 +1,35 @@
+[build-system]
+requires      = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name            = "verbadb"
+version         = "0.1.0"
+description     = "VerbaDB: talk to your databases. Ask in plain English, build databases by describing them, see how every change affects your data."
+readme          = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pyflashdb>=2.0.0",
+    "google-genai>=1.0,<3",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "sqlglot>=25",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "httpx2>=2", "mongomock>=4"]
+
+[project.scripts]
+verbadb = "verbadb.server:main"
+
+[tool.setuptools.packages.find]
+include = ["verbadb*"]
+
+[tool.setuptools.package-data]
+verbadb = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: needs GEMINI_API_KEY and network (opt-in: pytest -m live)"]
+addopts = "-m 'not live'"
